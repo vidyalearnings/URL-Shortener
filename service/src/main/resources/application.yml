@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: service
+  datasource:
+    url: jdbc:sqlite:${DB_PATH:./data/urlshortener.db}
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      # SQLite only supports a single writer at a time. A larger pool causes
+      # spurious "database is locked" errors that have nothing to do with
+      # application logic, so we pin this to a single connection.
+      maximum-pool-size: 1
+      minimum-idle: 1
+      connection-timeout: 10000
+      # journal_mode=WAL is persisted in the SQLite database file itself (it
+      # survives across connections/restarts), so setting it once via
+      # schema.sql on startup is sufficient. busy_timeout, however, is a
+      # per-connection pragma, so it is set again here on every physical
+      # connection Hikari opens as a defense-in-depth measure (verified
+      # empirically: with maximum-pool-size=1 the same connection is reused
+      # for the app's lifetime, but this protects against reconnects).
+      connection-init-sql: "PRAGMA busy_timeout = 5000;"
+  sql:
+    init:
+      mode: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  base-url: http://localhost:8080
+  short-code:
+    length: 7
+    max-generation-attempts: 5
+  rate-limit:
+    capacity: 20
+    refill-per-second: 5
+
+server:
+  port: 8080
