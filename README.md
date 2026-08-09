@@ -127,7 +127,10 @@ detection and dynamic re-planning, metrics calculation, approval gate replay).
 See [`docs/testing-and-tradeoffs.md`](docs/testing-and-tradeoffs.md) for what's covered,
 what's deliberately out of scope, and known limitations.
 
-## Example requests
+## Example requests and responses
+
+Captured from a real run of the service (not hand-written) — start it with
+`mvn -pl service -am spring-boot:run` and reproduce these yourself.
 
 Create a shortened URL:
 
@@ -138,47 +141,58 @@ curl -i -X POST http://localhost:8080/api/urls \
 ```
 
 ```
-HTTP/1.1 201 Created
+HTTP/1.1 201
+Content-Type: application/json
 
-{
-  "shortCode": "aZ3kQ1x",
-  "shortUrl": "http://localhost:8080/aZ3kQ1x",
-  "originalUrl": "https://example.com/some/very/long/path",
-  "status": "ACTIVE",
-  "isCustomAlias": false,
-  "createdAt": "2026-08-09T18:00:00.000Z",
-  "updatedAt": "2026-08-09T18:00:00.000Z",
-  "expiresAt": "2027-01-01T00:00:00Z",
-  "lastAccessedAt": null
-}
+{"shortCode":"K07fFW5","shortUrl":"http://localhost:8080/K07fFW5","originalUrl":"https://example.com/some/very/long/path","status":"ACTIVE","isCustomAlias":false,"createdAt":"2026-08-09T18:38:36.798251100Z","updatedAt":"2026-08-09T18:38:36.798251100Z","expiresAt":"2027-01-01T00:00:00Z","lastAccessedAt":null}
 ```
 
 Follow the redirect:
 
 ```
-curl -i http://localhost:8080/aZ3kQ1x
+curl -i http://localhost:8080/K07fFW5
 ```
 
 ```
-HTTP/1.1 302 Found
+HTTP/1.1 302
 Location: https://example.com/some/very/long/path
 ```
 
-Check analytics:
+Check analytics (after the redirect above has been followed once):
 
 ```
-curl http://localhost:8080/api/urls/aZ3kQ1x/analytics
+curl http://localhost:8080/api/urls/K07fFW5/analytics
 ```
 
 ```json
-{
-  "shortCode": "aZ3kQ1x",
-  "totalClicks": 1,
-  "clicksPerDay": [{"date": "2026-08-09", "count": 1}],
-  "referrers": {},
-  "userAgents": {"curl/8.4.0": 1},
-  "lastAccessedAt": "2026-08-09T18:00:05.000Z"
-}
+{"shortCode":"K07fFW5","totalClicks":1,"clicksPerDay":[{"date":"2026-08-09","count":1}],"referrers":{"unknown":1},"userAgents":{"curl/8.7.1":1},"lastAccessedAt":"2026-08-09T18:38:42.265749500Z"}
+```
+
+Unknown code (404):
+
+```
+curl -i http://localhost:8080/doesnotexist
+```
+
+```
+HTTP/1.1 404
+Content-Type: application/json
+
+{"timestamp":"2026-08-09T18:38:43.461214200Z","status":404,"error":"Not Found","message":"No URL found for short code 'doesnotexist'","path":"/doesnotexist"}
+```
+
+Disallowed scheme (400) — scheme validation rejects it before a row is ever created:
+
+```
+curl -i -X POST http://localhost:8080/api/urls \
+  -H "Content-Type: application/json" -d '{"originalUrl": "javascript:alert(1)"}'
+```
+
+```
+HTTP/1.1 400
+Content-Type: application/json
+
+{"timestamp":"2026-08-09T18:38:43.536893300Z","status":400,"error":"Bad Request","message":"originalUrl must use http or https scheme","path":"/api/urls"}
 ```
 
 ## Repository layout
