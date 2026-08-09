@@ -1,0 +1,74 @@
+# Base SDLC graph for the URL Shortener service.
+nodes:
+  - name: requirements
+    dependsOn: []
+    executor: requirements
+    requiresApproval: false
+    params:
+      vagueTerms: [fast, scalable, should, tbd, robust, efficient, user-friendly, secure, simple, intuitive]
+
+  - name: design
+    dependsOn: [requirements]
+    executor: design
+    requiresApproval: true
+    approvalPoint: exit
+    approvalDecisionId: design-review
+    retryPolicy:
+      maxAttempts: 1
+
+  - name: implement-api
+    dependsOn: [design]
+    executor: implement-api
+    retryPolicy:
+      maxAttempts: 2
+      backoffBaseSeconds: 2
+      backoffMultiplier: 2
+    params:
+      baseRef: HEAD~1
+
+  - name: implement-analytics
+    dependsOn: [design]
+    executor: implement-analytics
+    retryPolicy:
+      maxAttempts: 2
+      backoffBaseSeconds: 2
+      backoffMultiplier: 2
+    params:
+      baseRef: HEAD~1
+
+  - name: implement-reliability
+    dependsOn: [design]
+    executor: implement-reliability
+    retryPolicy:
+      maxAttempts: 2
+      backoffBaseSeconds: 2
+      backoffMultiplier: 2
+    params:
+      baseRef: HEAD~1
+
+  - name: testing
+    dependsOn: [implement-api, implement-analytics, implement-reliability]
+    executor: testing
+    retryPolicy:
+      maxAttempts: 3
+      backoffBaseSeconds: 2
+      backoffMultiplier: 2
+
+  - name: documentation
+    dependsOn: [implement-api, implement-analytics, implement-reliability]
+    executor: documentation
+    retryPolicy:
+      maxAttempts: 1
+    params:
+      strict: false
+      docFiles: [README.md]
+      openapiPath: openapi/openapi.yaml
+
+  - name: release-readiness
+    dependsOn: [testing, documentation]
+    executor: release-readiness
+    requiresApproval: true
+    approvalPoint: entry
+    approvalDecisionId: release-approval
+    retryPolicy:
+      maxAttempts: 1
