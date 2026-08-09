@@ -76,23 +76,41 @@ requirements ──▶ design ──▶ ┬─ implement-api ──────�
   (`outputs` per node, plus an explicit `decisions` list); the `requirements` stage's ambiguity
   findings, `design`'s rationale, and `release-readiness`'s final aggregation are all readable
   by later code and are independently reconstructable from the audit log alone.
-- **Bounded retries / fallback / rollback / safe-stop**: each node has a `RetryPolicyDef`
-  (max attempts, exponential backoff) evaluated by the `Orchestrator`; on exhaustion the node
-  transitions `FAILED`, its `rollback()` path fires (orchestration-state rollback only — see
-  Safety boundary below), downstream dependents cascade to `ROLLED_BACK`, and the scheduler
-  stops admitting *any* new work (global safe-stop) while letting already-running siblings
-  finish.
-- **Policy guardrails**: `PolicyEngine` evaluates exactly 3 rules (see `policy/policy.yaml`):
-  testing must have succeeded before `release-readiness` proceeds; a release requires a
-  recorded human `APPROVAL_GRANTED` decision; each `implement-*` stage is preceded by a
-  regex secret scan (`SecretScanner`) over `git diff`/`git status`-changed files in `service/`.
+- **Bounded retries**: each node has a `RetryPolicyDef` (max attempts, exponential backoff)
+  evaluated by the `Orchestrator`, with real `Thread.sleep`-based backoff between attempts,
+  logged as a `RETRY` event per attempt.
+- **Fallback** — distinct from retry (same executor, tried again) and from rollback (undoing
+  state after failure): if a node has a `fallback` executor configured in its graph YAML and
+  the primary executor exhausts its retry budget, the fallback is attempted once (no retries of
+  its own). If the fallback succeeds, the node ends `SUCCEEDED` via the degraded path (recorded
+  in its outputs as `viaFallback: true` plus the primary failure reason, and as a `FALLBACK`
+  audit event) instead of failing outright. Only if the fallback also fails does the node fall
+  through to the failure path below. Concretely wired in: `documentation`'s fallback is
+  `MinimalDocumentationStage`, which drops the strict OpenAPI/doc-completeness check down to
+  "does README.md exist and have content" — see `stages/MinimalDocumentationStage.java`.
+  Proven by `engine/FallbackTest.java` (primary-fails-then-fallback-succeeds, and
+  primary-and-fallback-both-fail) since — like retry and rollback — the shipped scenarios are
+  designed to succeed cleanly and don't naturally exercise it (see `docs/scenarios.md`).
+- **Rollback + safe-stop**: on retry exhaustion (and no fallback configured, or the fallback
+  also failed) the node transitions `FAILED`, its `rollback()` path fires (orchestration-state
+  rollback only — see Safety boundary below), downstream dependents cascade to `ROLLED_BACK`,
+  and the scheduler stops admitting *any* new work (global safe-stop) while letting
+  already-running siblings finish.
+- **Policy guardrails**: `PolicyEngine` evaluates exactly 3 rules (see `policy/policy.yaml`),
+  each mapped to one of the assignment's three named guardrail categories via
+  `PolicyRule.category()`: `RequireStageSucceededRule` (**compliance** — testing must have
+  succeeded before `release-readiness` proceeds, independent of any approval),
+  `RequireHumanApprovalRule` (**change control** — a release requires a recorded human
+  `APPROVAL_GRANTED` decision, independent of what automated checks say), and
+  `NoSecretsInChangedFilesRule` (**security** — each `implement-*` stage is preceded by a regex
+  secret scan via `SecretScanner` over `git diff`/`git status`-changed files in `service/`).
 - **Audit-grade observability**: `AuditLogger` appends one JSON object per event
-  (`STAGE_TRANSITION`, `RETRY`, `ROLLBACK`, `POLICY_VIOLATION`, `APPROVAL_REQUESTED`,
-  `APPROVAL_GRANTED`/`DENIED`, `DECISION`, `REPLAN`, `NODE_INSERTED`, `NODE_STALE`) to
-  `audit.jsonl`, flushed immediately — this file is the *only* source `MetricsCalculator` and
-  `ReportGenerator` read from, so what you see in a report is provably what happened, not a
-  separately-maintained summary that could drift from reality.
-- **Reliability metrics**: computed from the audit log — success rate, retry/rollback
+  (`STAGE_TRANSITION`, `RETRY`, `FALLBACK`, `ROLLBACK`, `POLICY_VIOLATION`,
+  `APPROVAL_REQUESTED`, `APPROVAL_GRANTED`/`DENIED`, `DECISION`, `REPLAN`, `NODE_INSERTED`,
+  `NODE_STALE`) to `audit.jsonl`, flushed immediately — this file is the *only* source
+  `MetricsCalculator` and `ReportGenerator` read from, so what you see in a report is provably
+  what happened, not a separately-maintained summary that could drift from reality.
+- **Reliability metrics**: computed from the audit log — success rate, retry/rollback/fallback
   frequency, MTTR (mean gap between a node's `FAILED` and its subsequent `SUCCEEDED`), and
   end-to-end latency. See `orchestrator/runs/*/metrics.txt` for real output from each scenario.
 - **Dynamic re-planning**: the `requirements` stage scans for vague/unquantified language; if

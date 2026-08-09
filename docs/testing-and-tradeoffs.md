@@ -16,16 +16,19 @@ which exception type SQLite unique-constraint violations actually surface as thr
 JDBC layer, rather than assuming — the answer (`UncategorizedSQLException`, not
 `DuplicateKeyException`) directly shaped `SqliteConstraintViolations`.
 
-**`orchestrator` (32 tests).** `GraphTest` (loading + cycle detection against both a valid and
+**`orchestrator` (34 tests).** `GraphTest` (loading + cycle detection against both a valid and
 a deliberately-cyclic fixture), `StateMachineTest`/executor tests that run real synthetic
 graphs through the real `Orchestrator` and assert wall-clock overlap between parallel branches
 (not just that both eventually ran), `RetryRollbackTest` (fake stages that fail N times then
 succeed, and fake stages that always fail, asserting retry counts, backoff, `FAILED`
-transitions, rollback, and safe-stop), `PolicyRuleTest` and `SecretScannerTest` (all 3 rules in
-isolation, including no-false-positive checks), `RequirementsStageTest` (ambiguity detection
-against both vague and well-specified fixture text), `MetricsCalculatorTest` (hand-calculated
-expected values against a synthetic audit log fixture), `ApprovalGateTest` (replay mode
-grant/deny/lookup).
+transitions, rollback, and safe-stop), `FallbackTest` (a primary stage that always fails paired
+with a fallback that succeeds — asserting the node ends `SUCCEEDED` via the degraded path with
+exactly one fallback attempt and a `FALLBACK` audit event; and the case where the fallback also
+fails — asserting the normal `FAILED`/rollback path still applies), `PolicyRuleTest` and
+`SecretScannerTest` (all 3 rules in isolation, including no-false-positive checks and each
+rule's `category()`), `RequirementsStageTest` (ambiguity detection against both vague and
+well-specified fixture text), `MetricsCalculatorTest` (hand-calculated expected values against
+a synthetic audit log fixture), `ApprovalGateTest` (replay mode grant/deny/lookup).
 
 **End-to-end.** All three required scenarios (`docs/scenarios.md`) were actually executed
 against the real, built `service` module — not run once during development and then described
@@ -71,21 +74,22 @@ These were cut consciously, not missed:
   an unfinished feature. Automating destructive git operations or real deployments from a
   prototype workflow engine would be a genuine safety risk, not a capability gap worth closing
   here.
-- **The 3 real scenario runs all show 0 retries/0 rollbacks**, because nothing in them actually
-  failed — real, non-simulated retry/rollback/MTTR signal instead comes from `service`'s
-  intentionally-flaky test fixture (exercised via `mvn test`, not via a scenario run) and from
-  the orchestrator's own unit tests that drive the retry/rollback machinery directly against
-  synthetic failing stages. A fourth "failure-injection" scenario demonstrating a real failed
-  orchestration run end-to-end would strengthen this further but wasn't included, to keep the
-  three required scenarios focused on what the assignment specifically asks for
-  (greenfield/brownfield/ambiguous, not a fourth failure-mode scenario).
-- **`docFiles`/`openapiPath` checks in `DocumentationStage` are configured non-strict
-  (`strict: false`) in the shipped graphs.** A missing or empty doc file is reported as an
-  issue but does not fail the stage. This was chosen so the `documentation` stage stays usable
-  standalone/in isolation (e.g. in orchestrator unit tests, or if `service` is mid-refactor and
-  temporarily missing a doc file) rather than becoming a hard gate on unrelated work; the
-  trade-off is that a real documentation regression wouldn't block a release on its own —
-  policy rule 1 (testing must succeed) is the actual hard release gate in this prototype.
+- **The 3 real scenario runs all show 0 retries/0 rollbacks/0 fallbacks**, because nothing in
+  them actually failed — real, non-simulated retry/rollback/fallback/MTTR signal instead comes
+  from `service`'s intentionally-flaky test fixture (exercised via `mvn test`, not via a
+  scenario run) and from the orchestrator's own unit tests (`RetryRollbackTest`, `FallbackTest`)
+  that drive the retry/rollback/fallback machinery directly against synthetic failing stages. A
+  fourth "failure-injection" scenario demonstrating a real failed orchestration run end-to-end
+  would strengthen this further but wasn't included, to keep the three required scenarios
+  focused on what the assignment specifically asks for (greenfield/brownfield/ambiguous, not a
+  fourth failure-mode scenario).
+- **`docFiles`/`openapiPath` checks in `DocumentationStage` are strict (`strict: true`) in the
+  shipped graphs** — a missing/empty doc file or an invalid OpenAPI schema fails the stage after
+  its retry budget, at which point the `documentation` node's configured fallback
+  (`MinimalDocumentationStage`, wired via `fallback: documentation-minimal`) degrades to the
+  minimum bar (README.md exists and is non-empty) rather than failing the whole
+  release-readiness path outright. `DocumentationStage` retains a `strict` param for standalone/
+  unit-test use (non-blocking mode) but the shipped graphs use the stricter, gated behavior.
 
 ## Risks not fully mitigated
 

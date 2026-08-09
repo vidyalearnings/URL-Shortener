@@ -31,8 +31,9 @@ heavier persistence stack for a prototype of this scope.
   cleanup job, 35 tests, a Dockerfile, and a hand-authored OpenAPI spec.
 - `orchestrator/` — a plain-Java SDLC orchestration engine: config-driven dependency graph,
   real parallel scheduling, human approval gates (interactive + replay), 3 policy guardrails
-  including a secret scanner, bounded retry/backoff/rollback/safe-stop, an append-only JSONL
-  audit log, reliability-metrics computation, Markdown report generation, a CLI, and 32 tests.
+  (each labeled against the security/compliance/change-control categories the assignment
+  names) including a secret scanner, bounded retry/fallback/rollback/safe-stop, an append-only
+  JSONL audit log, reliability-metrics computation, Markdown report generation, a CLI, and 34 tests.
 - `orchestrator/scenarios/` and `orchestrator/runs/` — inputs, approval fixtures, and real
   executed output (audit logs, reports, metrics) for all three required scenarios.
 - `docs/` — this document, plus `architecture.md`, `scenarios.md`, `setup.md`, and
@@ -73,7 +74,7 @@ and release deliberately do not automate.
   ambiguous, since overclaiming live code generation would misrepresent what the system does.
 - Three scenarios, each demonstrating decomposition/orchestration/validation, satisfies the
   assignment's scenario requirement without needing a fourth failure-injection scenario to
-  additionally demonstrate retry/rollback in a full run (that machinery is instead covered by
+  additionally demonstrate retry/fallback/rollback in a full run (that machinery is instead covered by
   the orchestrator's own unit tests and `service`'s intentionally-flaky test fixture).
 
 ## Limitations
