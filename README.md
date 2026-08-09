@@ -120,9 +120,10 @@ mvn test
 Runs both modules from the repo root — `service` (35 tests: CRUD, redirect, analytics,
 idempotency, rate limiting, the short-code collision concurrency test, the scheduled
 cleanup job, and one deliberately-flaky fixture used to give the orchestrator's retry/MTTR
-metrics real signal to report) and `orchestrator` (32 tests: graph loading/cycle detection,
-parallel scheduling, retry/rollback/safe-stop, policy rules, secret scanning, ambiguity
-detection and dynamic re-planning, metrics calculation, approval gate replay).
+metrics real signal to report) and `orchestrator` (34 tests: graph loading/cycle detection,
+parallel scheduling, retry/fallback/rollback/safe-stop, policy rules (each labeled
+security/compliance/change-control), secret scanning, ambiguity detection and dynamic
+re-planning, metrics calculation, approval gate replay).
 
 See [`docs/testing-and-tradeoffs.md`](docs/testing-and-tradeoffs.md) for what's covered,
 what's deliberately out of scope, and known limitations.

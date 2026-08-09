@@ -21,6 +21,7 @@ public class StageDef {
     private final ApprovalPoint approvalPoint;
     private final String approvalDecisionId;
     private final Map<String, Object> params;
+    private final String fallbackExecutor;
 
     public StageDef(String name,
                      List<String> dependsOn,
@@ -30,6 +31,24 @@ public class StageDef {
                      ApprovalPoint approvalPoint,
                      String approvalDecisionId,
                      Map<String, Object> params) {
+        this(name, dependsOn, executor, retryPolicy, requiresApproval, approvalPoint, approvalDecisionId, params, null);
+    }
+
+    /**
+     * @param fallbackExecutor executor key run once (no retries), in place of failing outright,
+     *                         if the primary executor exhausts its retry budget. Null means no
+     *                         fallback is configured for this node - straight to FAILED/rollback,
+     *                         as before this field existed.
+     */
+    public StageDef(String name,
+                     List<String> dependsOn,
+                     String executor,
+                     RetryPolicyDef retryPolicy,
+                     boolean requiresApproval,
+                     ApprovalPoint approvalPoint,
+                     String approvalDecisionId,
+                     Map<String, Object> params,
+                     String fallbackExecutor) {
         this.name = name;
         this.dependsOn = Collections.synchronizedList(new ArrayList<>(dependsOn == null ? List.of() : dependsOn));
         this.executor = executor;
@@ -38,6 +57,7 @@ public class StageDef {
         this.approvalPoint = approvalPoint;
         this.approvalDecisionId = approvalDecisionId == null ? name : approvalDecisionId;
         this.params = new LinkedHashMap<>(params == null ? Map.of() : params);
+        this.fallbackExecutor = fallbackExecutor;
     }
 
     public String getName() {
@@ -81,6 +101,11 @@ public class StageDef {
 
     public Map<String, Object> getParams() {
         return params;
+    }
+
+    /** Executor key to run once, with no retries, if the primary executor's retries are exhausted. Null if none configured. */
+    public String getFallbackExecutor() {
+        return fallbackExecutor;
     }
 
     @Override

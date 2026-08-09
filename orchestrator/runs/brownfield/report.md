@@ -6,25 +6,25 @@
 
 | Timestamp | Node | Event | From -> To | Actor | Reason |
 |---|---|---|---|---|---|
-| 2026-08-09T18:29:51.285235900Z | implement-reliability | STAGE_TRANSITION | READY -> RUNNING | system | stage started |
-| 2026-08-09T18:29:53.680001100Z | implement-reliability | STAGE_TRANSITION | RUNNING -> SUCCEEDED | system | implement-reliability: mvn -pl service compile exit=0; 0 impacted file(s) of 7 changed. |
-| 2026-08-09T18:29:53.682001Z | testing | STAGE_TRANSITION | READY -> RUNNING | system | stage started |
-| 2026-08-09T18:29:53.683005700Z | documentation | STAGE_TRANSITION | READY -> RUNNING | system | stage started |
-| 2026-08-09T18:29:53.691101500Z | documentation | STAGE_TRANSITION | RUNNING -> SUCCEEDED | system | All documentation checks passed. |
-| 2026-08-09T18:30:04.489375500Z | testing | STAGE_TRANSITION | RUNNING -> SUCCEEDED | system | tests=35 failures=0 errors=0 skipped=0 (mvn exit=0) |
-| 2026-08-09T18:30:04.490375300Z | release-readiness | STAGE_TRANSITION | READY -> RUNNING | system | stage started |
-| 2026-08-09T18:30:04.490375300Z | release-readiness | STAGE_TRANSITION | RUNNING -> AWAITING_APPROVAL | system | awaiting entry approval |
-| 2026-08-09T18:30:04.492375500Z | release-readiness | STAGE_TRANSITION | AWAITING_APPROVAL -> RUNNING | system | entry approval granted |
-| 2026-08-09T18:30:04.492375500Z | release-readiness | STAGE_TRANSITION | RUNNING -> SUCCEEDED | system | Release readiness satisfied; tagged v20260809-183004-d74de4ca (log-only). |
+| 2026-08-09T19:15:33.371694200Z | implement-reliability | STAGE_TRANSITION | READY -> RUNNING | system | stage started |
+| 2026-08-09T19:15:35.675058Z | implement-reliability | STAGE_TRANSITION | RUNNING -> SUCCEEDED | system | implement-reliability: mvn -pl service compile exit=0; 0 impacted file(s) of 1 changed. |
+| 2026-08-09T19:15:35.677068400Z | testing | STAGE_TRANSITION | READY -> RUNNING | system | stage started |
+| 2026-08-09T19:15:35.677068400Z | documentation | STAGE_TRANSITION | READY -> RUNNING | system | stage started |
+| 2026-08-09T19:15:35.680474600Z | documentation | STAGE_TRANSITION | RUNNING -> SUCCEEDED | system | All documentation checks passed. |
+| 2026-08-09T19:15:46.657864200Z | testing | STAGE_TRANSITION | RUNNING -> SUCCEEDED | system | tests=35 failures=0 errors=0 skipped=0 (mvn exit=0) |
+| 2026-08-09T19:15:46.658866800Z | release-readiness | STAGE_TRANSITION | READY -> RUNNING | system | stage started |
+| 2026-08-09T19:15:46.658866800Z | release-readiness | STAGE_TRANSITION | RUNNING -> AWAITING_APPROVAL | system | awaiting entry approval |
+| 2026-08-09T19:15:46.660877400Z | release-readiness | STAGE_TRANSITION | AWAITING_APPROVAL -> RUNNING | system | entry approval granted |
+| 2026-08-09T19:15:46.661874Z | release-readiness | STAGE_TRANSITION | RUNNING -> SUCCEEDED | system | Release readiness satisfied; tagged v20260809-191546-9cfb9808 (log-only). |
 
 ## Decisions
 
-- **[DECISION]** release-readiness @ 2026-08-09T18:30:04.492375500Z: released v20260809-183004-d74de4ca (log-only, no real deploy/tag/push executed)
+- **[DECISION]** release-readiness @ 2026-08-09T19:15:46.660877400Z: released v20260809-191546-9cfb9808 (log-only, no real deploy/tag/push executed)
 
 ## Approvals
 
-- **[APPROVAL_REQUESTED]** release-readiness by system @ 2026-08-09T18:30:04.490375300Z: Entry approval required for stage 'release-readiness'
-- **[APPROVAL_GRANTED]** release-readiness by human:vidya @ 2026-08-09T18:30:04.491375400Z: Expired-link cleanup job is scoped, tested, and non-breaking; approved for release.
+- **[APPROVAL_REQUESTED]** release-readiness by system @ 2026-08-09T19:15:46.659864700Z: Entry approval required for stage 'release-readiness'
+- **[APPROVAL_GRANTED]** release-readiness by human:vidya @ 2026-08-09T19:15:46.660877400Z: Expired-link cleanup job is scoped, tested, and non-breaking; approved for release.
 
 ## Retries / Rollbacks
 
@@ -40,11 +40,13 @@ Retry events:                0
 Retry frequency (per node):  0.00
 Rollback events:             0
 Rollback frequency (per node): 0.00
+Fallback events:             0
+Fallback frequency (per node): 0.00
 MTTR:                        0 ms
-End-to-end latency:          13207 ms
+End-to-end latency:          13290 ms
 Per-stage duration (ms):
-  implement-reliability:     2396 ms
-  documentation:             9 ms
-  testing:                   10807 ms
+  implement-reliability:     2305 ms
+  documentation:             3 ms
+  testing:                   10980 ms
   release-readiness:         3 ms
 ```

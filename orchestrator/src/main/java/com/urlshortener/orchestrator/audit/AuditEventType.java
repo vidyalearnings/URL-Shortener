@@ -3,6 +3,7 @@ package com.urlshortener.orchestrator.audit;
 public enum AuditEventType {
     STAGE_TRANSITION,
     RETRY,
+    FALLBACK,
     ROLLBACK,
     POLICY_VIOLATION,
     APPROVAL_REQUESTED,

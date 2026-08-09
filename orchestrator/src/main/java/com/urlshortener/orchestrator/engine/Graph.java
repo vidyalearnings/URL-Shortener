@@ -120,7 +120,11 @@ public class Graph {
             }
         }
 
-        return new StageDef(name, dependsOn, executor, retryPolicy, requiresApproval, approvalPoint, approvalDecisionId, params);
+        Object fallbackRaw = raw.get("fallback");
+        String fallbackExecutor = fallbackRaw == null ? null : String.valueOf(fallbackRaw);
+
+        return new StageDef(name, dependsOn, executor, retryPolicy, requiresApproval, approvalPoint, approvalDecisionId,
+                params, fallbackExecutor);
     }
 
     private static String requireString(Map<String, Object> raw, String key) {

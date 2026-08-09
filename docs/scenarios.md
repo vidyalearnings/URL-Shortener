@@ -98,11 +98,11 @@ rate, ~14.2s end-to-end. See `orchestrator/runs/ambiguous/metrics.txt` and `repo
 
 ## Cross-scenario observations
 
-- Retry/rollback frequency is 0 across all three real runs, because nothing actually failed —
-  reliability metrics with real non-zero retry signal instead come from `service`'s own test
+- Retry/rollback/fallback frequency is 0 across all three real runs, because nothing actually
+  failed — reliability metrics with real non-zero signal instead come from `service`'s own test
   suite (`FlakyClickTimingTest`, a deliberately calibrated ~25%-failure fixture) exercised via
-  `mvn test`, and from the orchestrator's own `RetryRollbackTest`/`StateMachineTest` unit tests,
-  which exercise the retry/backoff/rollback/safe-stop machinery directly with synthetic failing
-  stages. See `docs/testing-and-tradeoffs.md`.
+  `mvn test`, and from the orchestrator's own `RetryRollbackTest`/`FallbackTest`/
+  `StateMachineTest` unit tests, which exercise the retry/backoff/fallback/rollback/safe-stop
+  machinery directly with synthetic failing stages. See `docs/testing-and-tradeoffs.md`.
 - All three runs are individually reproducible via the `REPLAY` approval mode (no interactive
   input required) — see `docs/setup.md` for the exact commands.

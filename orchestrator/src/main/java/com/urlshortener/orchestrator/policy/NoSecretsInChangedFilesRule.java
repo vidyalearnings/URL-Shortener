@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
  * secret-shaped strings (AWS access keys, PEM private key headers, generic password/secret/
  * token/api-key assignments). Blocks the stage if any are found. Actual scanning logic lives in
  * {@link SecretScanner}.
+ *
+ * <p>Category: SECURITY.
  */
 public class NoSecretsInChangedFilesRule implements PolicyRule {
 
@@ -29,6 +31,11 @@ public class NoSecretsInChangedFilesRule implements PolicyRule {
     @Override
     public String id() {
         return ID;
+    }
+
+    @Override
+    public PolicyCategory category() {
+        return PolicyCategory.SECURITY;
     }
 
     @Override

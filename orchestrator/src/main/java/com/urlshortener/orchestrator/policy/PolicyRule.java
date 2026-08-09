@@ -14,6 +14,9 @@ public interface PolicyRule {
     /** Stable identifier used in policy.yaml and audit payloads. */
     String id();
 
+    /** Which of the assignment's three guardrail categories (security/compliance/change control) this rule enforces. */
+    PolicyCategory category();
+
     /** Evaluate this rule for {@code node}, given the run's current state. {@code params} come from policy.yaml. */
     PolicyResult evaluate(RunContext context, StageDef node, Map<String, Object> params);
 }

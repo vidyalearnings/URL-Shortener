@@ -5,16 +5,18 @@ Retry events:                0
 Retry frequency (per node):  0.00
 Rollback events:             0
 Rollback frequency (per node): 0.00
+Fallback events:             0
+Fallback frequency (per node): 0.00
 MTTR:                        0 ms
-End-to-end latency:          14238 ms
+End-to-end latency:          14809 ms
 Per-stage duration (ms):
-  requirements:              86 ms
-  clarify-requirements:      1 ms
+  requirements:              68 ms
+  clarify-requirements:      2 ms
   design:                    1 ms
-  implement-reliability:     3527 ms
-  implement-analytics:       3535 ms
-  implement-api:             3536 ms
-  documentation:             2 ms
-  testing:                   10610 ms
-  release-readiness:         2 ms
+  implement-analytics:       3527 ms
+  implement-api:             3539 ms
+  implement-reliability:     3552 ms
+  documentation:             0 ms
+  testing:                   11185 ms
+  release-readiness:         1 ms
 

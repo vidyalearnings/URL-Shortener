@@ -1,17 +1,23 @@
-# Policy guardrails: exactly three concrete rules (no generic rule engine/DSL).
+# Policy guardrails: exactly three concrete rules (no generic rule engine/DSL). Each rule's
+# governance category (security / compliance / change control - the three named explicitly in
+# the assignment brief) is defined in the rule's own Java class via PolicyRule.category(), which
+# is the source of truth; noted here in comments purely for readability of this config.
 rules:
+  # Category: COMPLIANCE - no release without a passing test suite, independent of any approval.
   - id: require-testing-succeeded
     type: RequireStageSucceededRule
     appliesTo: [release-readiness]
     params:
       requiredStage: testing
 
+  # Category: CHANGE_CONTROL - no release without a recorded human sign-off.
   - id: require-human-approval-for-release
     type: RequireHumanApprovalRule
     appliesTo: [release-readiness]
     params:
       decisionId: release-approval
 
+  # Category: SECURITY - no implementation stage proceeds if changed files contain secret-shaped strings.
   - id: no-secrets-in-changed-files
     type: NoSecretsInChangedFilesRule
     appliesTo: [implement-api, implement-analytics, implement-reliability]

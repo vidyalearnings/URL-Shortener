@@ -9,6 +9,9 @@ import java.util.Map;
 /**
  * Rule 1: blocks a node (by default {@code release-readiness}) from proceeding unless a
  * required upstream stage (by default {@code testing}) is SUCCEEDED.
+ *
+ * <p>Category: COMPLIANCE - this is the guardrail that release cannot happen without meeting
+ * the required quality bar (a passing test suite), independent of any human's say-so.
  */
 public class RequireStageSucceededRule implements PolicyRule {
 
@@ -17,6 +20,11 @@ public class RequireStageSucceededRule implements PolicyRule {
     @Override
     public String id() {
         return ID;
+    }
+
+    @Override
+    public PolicyCategory category() {
+        return PolicyCategory.COMPLIANCE;
     }
 
     @Override
