@@ -11,6 +11,8 @@ public record Metrics(
         double retryFrequency,
         long rollbackEvents,
         double rollbackFrequency,
+        long fallbackEvents,
+        double fallbackFrequency,
         double mttrMs,
         long endToEndLatencyMs,
         Map<String, Long> perStageDurationMs
@@ -25,6 +27,8 @@ public record Metrics(
         sb.append(String.format("%-28s %.2f%n", "Retry frequency (per node):", retryFrequency));
         sb.append(String.format("%-28s %d%n", "Rollback events:", rollbackEvents));
         sb.append(String.format("%-28s %.2f%n", "Rollback frequency (per node):", rollbackFrequency));
+        sb.append(String.format("%-28s %d%n", "Fallback events:", fallbackEvents));
+        sb.append(String.format("%-28s %.2f%n", "Fallback frequency (per node):", fallbackFrequency));
         sb.append(String.format("%-28s %.0f ms%n", "MTTR:", mttrMs));
         sb.append(String.format("%-28s %d ms%n", "End-to-end latency:", endToEndLatencyMs));
         sb.append("Per-stage duration (ms):\n");

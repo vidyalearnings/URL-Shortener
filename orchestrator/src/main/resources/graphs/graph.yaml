@@ -59,8 +59,9 @@ nodes:
     executor: documentation
     retryPolicy:
       maxAttempts: 1
+    fallback: documentation-minimal
     params:
-      strict: false
+      strict: true
       docFiles: [README.md]
       openapiPath: openapi/openapi.yaml
 

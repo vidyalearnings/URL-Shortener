@@ -27,7 +27,7 @@ public class MetricsCalculator {
 
     public static Metrics calculate(List<AuditEvent> events) {
         if (events.isEmpty()) {
-            return new Metrics(0, 0, 0.0, 0, 0.0, 0, 0.0, 0.0, 0, Map.of());
+            return new Metrics(0, 0, 0.0, 0, 0.0, 0, 0.0, 0, 0.0, 0.0, 0, Map.of());
         }
 
         TreeSet<String> allNodes = new TreeSet<>();
@@ -35,6 +35,7 @@ public class MetricsCalculator {
         Map<String, Long> perStageDuration = new LinkedHashMap<>();
         long retryEvents = 0;
         long rollbackEvents = 0;
+        long fallbackEvents = 0;
 
         // For MTTR: per node, timestamp of the most recent unmatched FAILED transition.
         Map<String, Instant> pendingFailure = new LinkedHashMap<>();
@@ -59,6 +60,8 @@ public class MetricsCalculator {
                 retryEvents++;
             } else if (event.eventType() == AuditEventType.ROLLBACK) {
                 rollbackEvents++;
+            } else if (event.eventType() == AuditEventType.FALLBACK) {
+                fallbackEvents++;
             }
 
             if (event.eventType() == AuditEventType.STAGE_TRANSITION && event.node() != null) {
@@ -84,11 +87,12 @@ public class MetricsCalculator {
         double successRate = totalNodes == 0 ? 0.0 : (double) succeededNodes / totalNodes;
         double retryFrequency = totalNodes == 0 ? 0.0 : (double) retryEvents / totalNodes;
         double rollbackFrequency = totalNodes == 0 ? 0.0 : (double) rollbackEvents / totalNodes;
+        double fallbackFrequency = totalNodes == 0 ? 0.0 : (double) fallbackEvents / totalNodes;
         double mttrMs = recoveryDurationsMs.isEmpty() ? 0.0
                 : recoveryDurationsMs.stream().mapToLong(Long::longValue).average().orElse(0.0);
         long endToEndLatencyMs = (first == null || last == null) ? 0 : Duration.between(first, last).toMillis();
 
         return new Metrics(totalNodes, (int) succeededNodes, successRate, retryEvents, retryFrequency,
-                rollbackEvents, rollbackFrequency, mttrMs, endToEndLatencyMs, perStageDuration);
+                rollbackEvents, rollbackFrequency, fallbackEvents, fallbackFrequency, mttrMs, endToEndLatencyMs, perStageDuration);
     }
 }

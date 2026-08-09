@@ -16,6 +16,7 @@ import com.urlshortener.orchestrator.stages.DocumentationStage;
 import com.urlshortener.orchestrator.stages.ImplementAnalyticsStage;
 import com.urlshortener.orchestrator.stages.ImplementApiStage;
 import com.urlshortener.orchestrator.stages.ImplementReliabilityStage;
+import com.urlshortener.orchestrator.stages.MinimalDocumentationStage;
 import com.urlshortener.orchestrator.stages.ReleaseReadinessStage;
 import com.urlshortener.orchestrator.stages.RequirementsStage;
 import com.urlshortener.orchestrator.stages.StageExecutor;
@@ -139,6 +140,7 @@ public final class Main {
         executors.put("implement-reliability", new ImplementReliabilityStage());
         executors.put("testing", new TestingStage());
         executors.put("documentation", new DocumentationStage());
+        executors.put("documentation-minimal", new MinimalDocumentationStage());
         executors.put("release-readiness", new ReleaseReadinessStage());
         return executors;
     }

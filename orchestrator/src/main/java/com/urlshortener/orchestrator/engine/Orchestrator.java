@@ -10,6 +10,7 @@ import com.urlshortener.orchestrator.stages.StageExecutor;
 import com.urlshortener.orchestrator.stages.StageResult;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
@@ -186,10 +187,21 @@ public class Orchestrator {
 
             boolean succeeded = result != null && result.isSuccess();
             if (!succeeded) {
-                String reason = lastException != null
+                String primaryReason = lastException != null
                         ? "exception: " + lastException
                         : (result != null ? result.getSummary() : "stage failed with no result");
-                failNode(node, reason, nodeStart, true);
+
+                if (node.getFallbackExecutor() != null) {
+                    StageResult fallbackResult = attemptFallback(node, primaryReason);
+                    if (fallbackResult != null && fallbackResult.isSuccess()) {
+                        succeedViaFallback(node, fallbackResult, primaryReason, nodeStart);
+                        return;
+                    }
+                    primaryReason = primaryReason + "; fallback '" + node.getFallbackExecutor() + "' also failed: "
+                            + (fallbackResult != null ? fallbackResult.getSummary() : "threw or was unregistered");
+                }
+
+                failNode(node, primaryReason, nodeStart, true);
                 return;
             }
 
@@ -212,6 +224,64 @@ public class Orchestrator {
         } catch (RuntimeException e) {
             failNode(node, "unexpected error: " + e, nodeStart, false);
         }
+    }
+
+    /**
+     * Runs the configured fallback executor once (no retries of its own) after the primary
+     * executor's retry budget is exhausted. Distinct from rollback (which undoes state after a
+     * failure) and from retry (which re-attempts the same executor) - this attempts a different,
+     * degraded-but-acceptable executor instead of failing outright.
+     */
+    private StageResult attemptFallback(StageDef node, String primaryReason) {
+        String fallbackKey = node.getFallbackExecutor();
+        StageExecutor fallback = executors.get(fallbackKey);
+        if (fallback == null) {
+            auditLog(AuditEventType.FALLBACK, node.getName(), StageState.RUNNING, StageState.RUNNING, "system",
+                    "primary retries exhausted (" + primaryReason + "); fallback '" + fallbackKey
+                            + "' not attempted - no StageExecutor registered for that key",
+                    Map.of("fallbackExecutor", fallbackKey, "fallbackSucceeded", false), null);
+            return null;
+        }
+        StageResult result;
+        boolean ok;
+        String outcome;
+        try {
+            result = fallback.execute(context, node);
+            ok = result != null && result.isSuccess();
+            outcome = ok ? "succeeded" : "failed: " + result.getSummary();
+        } catch (Exception e) {
+            result = null;
+            ok = false;
+            outcome = "threw: " + e;
+        }
+        auditLog(AuditEventType.FALLBACK, node.getName(), StageState.RUNNING, StageState.RUNNING, "system",
+                "primary retries exhausted (" + primaryReason + "); fallback '" + fallbackKey + "' " + outcome,
+                Map.of("fallbackExecutor", fallbackKey, "fallbackSucceeded", ok), null);
+        return result;
+    }
+
+    private void succeedViaFallback(StageDef node, StageResult fallbackResult, String primaryReason, long nodeStart) {
+        String name = node.getName();
+        Map<String, Object> outputs = new LinkedHashMap<>(
+                fallbackResult.getOutputs() == null ? Map.of() : fallbackResult.getOutputs());
+        outputs.put("viaFallback", true);
+        outputs.put("primaryFailureReason", primaryReason);
+        context.putOutput(name, outputs);
+
+        if (node.isRequiresApproval() && node.getApprovalPoint() == ApprovalPoint.EXIT) {
+            transition(name, StageState.AWAITING_APPROVAL, "system", "awaiting exit approval (completed via fallback)", null, null);
+            ApprovalDecision decision = approvalGate.requestApproval(context, node, node.getApprovalDecisionId(),
+                    "Exit approval required for stage '" + name + "' (completed via fallback)");
+            if (!decision.approved()) {
+                failNode(node, "exit approval denied: " + decision.comment(), nodeStart, false);
+                return;
+            }
+        }
+
+        long durationMs = System.currentTimeMillis() - nodeStart;
+        transition(name, StageState.SUCCEEDED, "system",
+                "primary failed (" + primaryReason + "); recovered via fallback: " + fallbackResult.getSummary(),
+                null, durationMs);
     }
 
     private void failNode(StageDef node, String reason, long nodeStart, boolean callRollback) {
