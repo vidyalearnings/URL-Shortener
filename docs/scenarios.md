@@ -64,6 +64,19 @@ compile` to confirm the change actually compiles — this is the literal "identi
 impacted modules" requirement, backed by a real `git diff` against the real repo, not a
 hardcoded list.
 
+**Data flow impact:** the change inserts a new write path (the scheduled sweep writes
+`urls.status` outside of any request) and widens the read-side contract: every caller that
+branches on `status` — `resolveForRedirect` (redirect/analytics eligibility), `GET
+/api/urls/{code}` (metadata response), any future admin/reporting query — now sees a third
+possible value (`EXPIRED`) instead of two (`ACTIVE`/`DELETED`). The existing lazy check
+(`ShortUrl.isExpired()`) is unaffected and remains the correctness backstop for the window
+before a sweep runs, so no caller's behavior changes, only how quickly `status` itself
+reflects an already-true fact. This *is* an API contract change — `UrlResponse.status` is
+serialized from the `UrlStatus` Java enum, which grew a third value — so any consumer doing
+strict client-side enum validation on the JSON `status` field needs updating; `openapi.yaml`'s
+`status` enum was updated in the same change to document the new value rather than leaving the
+schema silently out of sync with what the API actually returns.
+
 **Result:** 4/4 nodes `SUCCEEDED`, 100% success rate, ~13.2s end-to-end. See
 `orchestrator/runs/brownfield/metrics.txt` and `report.md`.
 

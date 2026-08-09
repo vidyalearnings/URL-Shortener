@@ -91,6 +91,21 @@ These were cut consciously, not missed:
   release-readiness path outright. `DocumentationStage` retains a `strict` param for standalone/
   unit-test use (non-blocking mode) but the shipped graphs use the stricter, gated behavior.
 
+## Failure scenarios and system response
+
+| Scenario | Trigger | Response |
+|---|---|---|
+| Short-code collision race | Concurrent creates land on the same generated code | DB unique constraint rejects the loser; app-level retry generates a fresh code, up to `max-generation-attempts` (default 5), then `503`. Proven under real concurrency by `ShortCodeCollisionConcurrencyTest`. |
+| Custom alias already taken | Two creates target the same `customAlias` | No retry (a real conflict, not a transient collision) — `409` via `AliasAlreadyExistsException`. |
+| Short-code space exhausted | Generation retries all collide | `503` via `ShortCodeGenerationException` rather than hanging or returning a malformed response. |
+| Async click-write fails | `ClickTrackingService`'s `@Async` method throws (e.g. transient DB contention) | Swallowed by Spring's default async-uncaught-exception handling (logged, not propagated) — **by design**, since analytics recording must never fail or delay the redirect response itself. |
+| Transient SQLite lock beyond `busy_timeout` on a non-collision write (update/delete) | Sustained write contention | **Known gap, not silently glossed over**: falls through to Spring Boot's default error response, not the app's custom `ErrorResponse` JSON shape, since `GlobalExceptionHandler` has no catch-all `Exception` handler — only the specific exceptions it's told to expect. A production hardening pass would add one. |
+| Rate limiter unbounded growth | Sustained traffic from many distinct client IPs over a long-running instance | **Known gap**: `RateLimiterService`'s `ConcurrentHashMap<String, TokenBucket>` never evicts idle entries — acceptable for a prototype/demo run, not for long-lived production uptime without an eviction policy (e.g. a scheduled sweep, mirroring `ExpiredLinkCleanupJob`'s pattern). |
+| Orchestrator stage executor throws | Any unexpected exception inside a `StageExecutor.execute` | Caught by the `Orchestrator`'s retry loop exactly like a returned failure — retried per `RetryPolicyDef`, then fallback (if configured) — then `FAILED`/rollback/safe-stop. |
+| Human denies an approval gate | `ApprovalGate` returns `approved=false` | Node fails immediately with no retry (a human "no" isn't a transient error to retry past) — cascades to rollback/safe-stop like any other failure. |
+| Policy violation (e.g. secret-shaped string detected) | `NoSecretsInChangedFilesRule` blocks an `implement-*` stage | Stage never executes (blocked pre-execution) — `POLICY_VIOLATION` audit event, node fails with no rollback needed (nothing ran), safe-stop halts the run. |
+| `mvn`/`git` not resolvable on `PATH` | Minimal/non-standard shell environment running the orchestrator | `AbstractImplementStage`/`TestingStage` fall back to a hardcoded Maven install path before giving up; if that also fails, the stage fails normally through the standard retry/fallback/rollback path — not a special case. |
+
 ## Risks not fully mitigated
 
 - **Windows timer granularity** made calibrating `FlakyClickTimingTest`'s failure window
