@@ -84,6 +84,18 @@ public class UrlRepository {
         );
     }
 
+    /**
+     * Bulk-transitions overdue ACTIVE rows to EXPIRED. Returns the number of
+     * rows updated. Used by {@link com.urlshortener.service.ExpiredLinkCleanupJob}.
+     */
+    public int expireOverdueActive(Instant now) {
+        return jdbcTemplate.update(
+                "UPDATE urls SET status = ?, updated_at = ? " +
+                        "WHERE status = ? AND expires_at IS NOT NULL AND expires_at < ?",
+                UrlStatus.EXPIRED.name(), fromInstant(now), UrlStatus.ACTIVE.name(), fromInstant(now)
+        );
+    }
+
     private static String fromInstant(Instant instant) {
         return instant == null ? null : instant.toString();
     }

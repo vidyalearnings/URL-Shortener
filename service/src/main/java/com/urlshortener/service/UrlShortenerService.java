@@ -142,7 +142,10 @@ public class UrlShortenerService {
         if (url.status() == UrlStatus.DELETED) {
             throw new ShortCodeNotFoundException(shortCode);
         }
-        if (url.isExpired()) {
+        // EXPIRED means the cleanup sweep already caught it; isExpired() is the
+        // reactive fallback for the window before the next sweep runs on an
+        // ACTIVE row. Either path leads to the same 410 response.
+        if (url.status() == UrlStatus.EXPIRED || url.isExpired()) {
             throw new UrlExpiredException(shortCode);
         }
         return url;

@@ -37,6 +37,9 @@ app:
   rate-limit:
     capacity: 20
     refill-per-second: 5
+  cleanup:
+    # How often the expired-link sweep (ExpiredLinkCleanupJob) runs.
+    fixed-delay-ms: 60000
 
 server:
   port: 8080
