@@ -107,7 +107,7 @@ public class PolicyEngine {
             }
             PolicyResult result = binding.rule().evaluate(context, node, binding.params());
             if (!result.allowed()) {
-                reasons.add("[" + binding.id() + "] " + result.reason());
+                reasons.add("[" + binding.id() + "/" + binding.rule().category() + "] " + result.reason());
             }
         }
         return reasons.isEmpty() ? CheckOutcome.allow() : new CheckOutcome(false, reasons);
