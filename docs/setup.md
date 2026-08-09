@@ -16,7 +16,7 @@ From the repo root:
 mvn clean test
 ```
 
-Builds and tests both modules (`service`: 35 tests, `orchestrator`: 32 tests) in one pass.
+Builds and tests both modules (`service`: 35 tests, `orchestrator`: 34 tests) in one pass.
 
 ## Run the service
 
@@ -51,6 +51,21 @@ Produces `orchestrator/target/orchestrator.jar` (a shaded/fat jar — no separat
 setup needed).
 
 ### Run a scenario
+
+**On Windows/PowerShell**, use the wrapper scripts in `orchestrator/scripts/` — pasting the
+long one-liners below into some terminals (e.g. legacy Windows Console Host) can silently
+split them across multiple commands. Run from the repo root:
+
+```powershell
+.\orchestrator\scripts\run-greenfield.ps1
+.\orchestrator\scripts\run-brownfield.ps1
+.\orchestrator\scripts\run-ambiguous.ps1
+```
+
+Add `-Interactive` to any of them to be prompted on stdin for each approval decision instead
+of replaying the pre-supplied fixture, e.g. `.\orchestrator\scripts\run-ambiguous.ps1 -Interactive`.
+
+The equivalent raw command (any shell, including bash/macOS/Linux):
 
 ```
 java -jar orchestrator/target/orchestrator.jar run-scenario \
