@@ -1,0 +1,23 @@
+# Approval replay fixture for the ambiguous scenario run.
+# The requirements stage is expected to flag vague/unquantified language and insert a
+# synthetic clarify-requirements node gated by this approval before design can proceed.
+- decisionId: clarify-requirements-approval
+  approved: true
+  approver: vidya
+  comment: >
+    Confirmed clarification: redirect latency target is p95 < 200ms at up to 100k
+    clicks/day; analytics endpoints are rate-limited (same per-IP token bucket as
+    the rest of the API, 20 req/20s burst / 5 req/s refill) and require no new auth
+    scheme beyond what already exists; "simple and intuitive dashboard" is out of
+    scope for this change - no dashboard UI work is included, only the underlying
+    analytics data the API already exposes.
+
+- decisionId: design-review
+  approved: true
+  approver: vidya
+  comment: "Clarified scope reviewed - no architectural changes needed beyond existing analytics endpoint."
+
+- decisionId: release-approval
+  approved: true
+  approver: vidya
+  comment: "Approved for release."

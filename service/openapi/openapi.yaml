@@ -1,0 +1,336 @@
+openapi: 3.0.3
+info:
+  title: URL Shortener Service
+  description: >
+    REST API for creating, resolving, updating, and analyzing shortened
+    URLs. Persistence is SQLite via plain JdbcTemplate (no JPA). Rate
+    limiting is in-memory per-instance (not shared across horizontally
+    scaled instances - see the `RateLimiterService` code comment).
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: URLs
+    description: Create, read, update, and delete shortened URLs
+  - name: Redirect
+    description: Public redirect endpoint
+  - name: Analytics
+    description: Click analytics for a shortened URL
+
+paths:
+  /api/urls:
+    post:
+      tags: [URLs]
+      summary: Create a shortened URL
+      description: >
+        Creates a new shortened URL, either with a randomly generated code
+        or a caller-supplied custom alias. Supports idempotent retries via
+        the `Idempotency-Key` header: replaying the same key with an
+        identical body returns the original result (200); replaying it with
+        a different body is a conflict (409).
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: >
+            Optional client-generated key. Replaying a POST with the same
+            key and an identical body returns the original 201 result as a
+            200 instead of creating a duplicate row.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUrlRequest'
+      responses:
+        '201':
+          description: Created a new shortened URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlResponse'
+        '200':
+          description: Idempotency-Key replay of an identical prior request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlResponse'
+        '400':
+          description: Invalid originalUrl (scheme/format) or invalid customAlias format/reserved word
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Custom alias already in use, or Idempotency-Key reused with a different body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Exhausted short-code generation attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/urls/{code}:
+    get:
+      tags: [URLs]
+      summary: Get metadata for a short code
+      parameters:
+        - $ref: '#/components/parameters/CodePathParam'
+      responses:
+        '200':
+          description: URL metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlResponse'
+        '404':
+          description: No URL found for this code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [URLs]
+      summary: Update a short code's destination and/or expiry
+      parameters:
+        - $ref: '#/components/parameters/CodePathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUrlRequest'
+      responses:
+        '200':
+          description: Updated URL metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlResponse'
+        '400':
+          description: Invalid originalUrl (scheme/format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No URL found for this code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [URLs]
+      summary: Soft-delete a short code
+      description: Marks the URL as DELETED. It will no longer resolve via the redirect endpoint.
+      parameters:
+        - $ref: '#/components/parameters/CodePathParam'
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: No URL found for this code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/urls/{code}/analytics:
+    get:
+      tags: [Analytics]
+      summary: Get click analytics for a short code
+      parameters:
+        - $ref: '#/components/parameters/CodePathParam'
+      responses:
+        '200':
+          description: Analytics summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsResponse'
+        '404':
+          description: No URL found for this code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /{code}:
+    get:
+      tags: [Redirect]
+      summary: Redirect to the original URL
+      description: >
+        Redirects to the original URL and asynchronously records a click
+        event (referrer, user agent, hashed IP). The redirect response does
+        not wait on the click write.
+      parameters:
+        - $ref: '#/components/parameters/CodePathParam'
+      responses:
+        '302':
+          description: Redirect to the original URL
+          headers:
+            Location:
+              description: The original URL
+              schema:
+                type: string
+                format: uri
+        '404':
+          description: No URL found for this code, or it has been deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: The URL existed but has expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    CodePathParam:
+      name: code
+      in: path
+      required: true
+      description: The short code (or custom alias)
+      schema:
+        type: string
+
+  schemas:
+    CreateUrlRequest:
+      type: object
+      required: [originalUrl]
+      properties:
+        originalUrl:
+          type: string
+          format: uri
+          description: Must use the http or https scheme.
+          example: https://example.com/some/very/long/path
+        customAlias:
+          type: string
+          nullable: true
+          description: >
+            Optional custom short code. Must match ^[a-zA-Z0-9_-]{3,20}$ and
+            must not be a reserved word (api, admin, health, actuator,
+            static, www).
+          example: my-campaign
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO-8601 timestamp after which the URL is considered expired.
+
+    UpdateUrlRequest:
+      type: object
+      properties:
+        originalUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: If provided, must use the http or https scheme.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    UrlResponse:
+      type: object
+      properties:
+        shortCode:
+          type: string
+        shortUrl:
+          type: string
+          format: uri
+        originalUrl:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED, DELETED]
+        isCustomAlias:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastAccessedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AnalyticsResponse:
+      type: object
+      properties:
+        shortCode:
+          type: string
+        totalClicks:
+          type: integer
+          format: int64
+        clicksPerDay:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyCount'
+        referrers:
+          type: object
+          description: Top referrer strings mapped to click counts (raw grouping, no parsing).
+          additionalProperties:
+            type: integer
+            format: int64
+        userAgents:
+          type: object
+          description: Top user-agent strings mapped to click counts (raw grouping, no parsing).
+          additionalProperties:
+            type: integer
+            format: int64
+        lastAccessedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    DailyCount:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer
+          format: int64
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string

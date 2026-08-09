@@ -1,0 +1,41 @@
+# Brownfield graph variant: starts mid-flow at implement-reliability (requirements/design
+# omitted entirely), for scenarios where we're patching an already-designed codebase rather
+# than building it from scratch. Demonstrates the loader/engine support graphs that don't
+# include every possible stage.
+nodes:
+  - name: implement-reliability
+    dependsOn: []
+    executor: implement-reliability
+    retryPolicy:
+      maxAttempts: 2
+      backoffBaseSeconds: 2
+      backoffMultiplier: 2
+    params:
+      baseRef: HEAD~1
+
+  - name: testing
+    dependsOn: [implement-reliability]
+    executor: testing
+    retryPolicy:
+      maxAttempts: 3
+      backoffBaseSeconds: 2
+      backoffMultiplier: 2
+
+  - name: documentation
+    dependsOn: [implement-reliability]
+    executor: documentation
+    retryPolicy:
+      maxAttempts: 1
+    params:
+      strict: false
+      docFiles: [README.md]
+      openapiPath: openapi/openapi.yaml
+
+  - name: release-readiness
+    dependsOn: [testing, documentation]
+    executor: release-readiness
+    requiresApproval: true
+    approvalPoint: entry
+    approvalDecisionId: release-approval
+    retryPolicy:
+      maxAttempts: 1

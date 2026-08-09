@@ -1,0 +1,13 @@
+nodes:
+  - name: a
+    dependsOn: []
+    executor: noop
+  - name: b
+    dependsOn: [a]
+    executor: noop
+  - name: c
+    dependsOn: [a]
+    executor: noop
+  - name: d
+    dependsOn: [b, c]
+    executor: noop

@@ -1,0 +1,5 @@
+# Approval replay fixture for the brownfield scenario run (trimmed graph - no design-review gate).
+- decisionId: release-approval
+  approved: true
+  approver: vidya
+  comment: "Expired-link cleanup job is scoped, tested, and non-breaking; approved for release."
