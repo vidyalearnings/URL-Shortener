@@ -263,7 +263,7 @@ components:
           format: uri
         status:
           type: string
-          enum: [ACTIVE, DELETED]
+          enum: [ACTIVE, EXPIRED, DELETED]
         isCustomAlias:
           type: boolean
         createdAt:
