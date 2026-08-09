@@ -1,0 +1,10 @@
+# Approval replay fixture for the greenfield scenario run.
+- decisionId: design-review
+  approved: true
+  approver: vidya
+  comment: "JdbcTemplate-over-JPA and Java-only orchestrator decisions reviewed and approved."
+
+- decisionId: release-approval
+  approved: true
+  approver: vidya
+  comment: "Tests and documentation checks passed; approved for release."
