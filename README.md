@@ -129,70 +129,193 @@ what's deliberately out of scope, and known limitations.
 
 ## Example requests and responses
 
-Captured from a real run of the service (not hand-written) — start it with
+A full walkthrough of every endpoint and every documented error case, captured from a real
+run of the service against a clean database (not hand-written) — start it with
 `mvn -pl service -am spring-boot:run` and reproduce these yourself.
 
-Create a shortened URL:
+**1. Create a shortened URL**
 
 ```
 curl -i -X POST http://localhost:8080/api/urls \
   -H "Content-Type: application/json" \
   -d '{"originalUrl": "https://example.com/some/very/long/path", "expiresAt": "2027-01-01T00:00:00Z"}'
 ```
-
 ```
 HTTP/1.1 201
-Content-Type: application/json
-
-{"shortCode":"K07fFW5","shortUrl":"http://localhost:8080/K07fFW5","originalUrl":"https://example.com/some/very/long/path","status":"ACTIVE","isCustomAlias":false,"createdAt":"2026-08-09T18:38:36.798251100Z","updatedAt":"2026-08-09T18:38:36.798251100Z","expiresAt":"2027-01-01T00:00:00Z","lastAccessedAt":null}
+{"shortCode":"RMfk48e","shortUrl":"http://localhost:8080/RMfk48e","originalUrl":"https://example.com/some/very/long/path","status":"ACTIVE","isCustomAlias":false,"createdAt":"2026-08-09T18:44:43.136250300Z","updatedAt":"2026-08-09T18:44:43.136250300Z","expiresAt":"2027-01-01T00:00:00Z","lastAccessedAt":null}
 ```
 
-Follow the redirect:
+**2. Follow the redirect**
 
 ```
-curl -i http://localhost:8080/K07fFW5
+curl -i http://localhost:8080/RMfk48e
 ```
-
 ```
 HTTP/1.1 302
 Location: https://example.com/some/very/long/path
 ```
 
-Check analytics (after the redirect above has been followed once):
+**3. Get metadata** (note `lastAccessedAt` is now populated, from the redirect above)
 
 ```
-curl http://localhost:8080/api/urls/K07fFW5/analytics
+curl -i http://localhost:8080/api/urls/RMfk48e
+```
+```
+HTTP/1.1 200
+{"shortCode":"RMfk48e","shortUrl":"http://localhost:8080/RMfk48e","originalUrl":"https://example.com/some/very/long/path","status":"ACTIVE","isCustomAlias":false,"createdAt":"2026-08-09T18:44:43.136250300Z","updatedAt":"2026-08-09T18:44:43.136250300Z","expiresAt":"2027-01-01T00:00:00Z","lastAccessedAt":"2026-08-09T18:44:51.436869Z"}
 ```
 
+**4. Check analytics**
+
+```
+curl http://localhost:8080/api/urls/RMfk48e/analytics
+```
 ```json
-{"shortCode":"K07fFW5","totalClicks":1,"clicksPerDay":[{"date":"2026-08-09","count":1}],"referrers":{"unknown":1},"userAgents":{"curl/8.7.1":1},"lastAccessedAt":"2026-08-09T18:38:42.265749500Z"}
+{"shortCode":"RMfk48e","totalClicks":1,"clicksPerDay":[{"date":"2026-08-09","count":1}],"referrers":{"unknown":1},"userAgents":{"curl/8.7.1":1},"lastAccessedAt":"2026-08-09T18:44:51.436869Z"}
 ```
 
-Unknown code (404):
+**5. Custom alias**
+
+```
+curl -i -X POST http://localhost:8080/api/urls -H "Content-Type: application/json" \
+  -d '{"originalUrl": "https://example.com/campaign", "customAlias": "my-campaign"}'
+```
+```
+HTTP/1.1 201
+{"shortCode":"my-campaign","shortUrl":"http://localhost:8080/my-campaign","originalUrl":"https://example.com/campaign","status":"ACTIVE","isCustomAlias":true,"createdAt":"2026-08-09T18:45:04.116686400Z","updatedAt":"2026-08-09T18:45:04.116686400Z","expiresAt":null,"lastAccessedAt":null}
+```
+
+**5b. Reusing that alias with a different URL — 409**
+
+```
+curl -i -X POST http://localhost:8080/api/urls -H "Content-Type: application/json" \
+  -d '{"originalUrl": "https://example.com/different", "customAlias": "my-campaign"}'
+```
+```
+HTTP/1.1 409
+{"timestamp":"2026-08-09T18:45:04.199396400Z","status":409,"error":"Conflict","message":"Custom alias 'my-campaign' is already in use","path":"/api/urls"}
+```
+
+**6. Idempotency-Key replay** — identical key + identical body returns the original result (200, not a new row)
+
+```
+curl -i -X POST http://localhost:8080/api/urls -H "Content-Type: application/json" \
+  -H "Idempotency-Key: test-key-1" -d '{"originalUrl": "https://example.com/idempotent"}'
+```
+```
+HTTP/1.1 201
+{"shortCode":"kYvBqt8", ... }
+```
+Replaying the exact same request:
+```
+HTTP/1.1 200
+{"shortCode":"kYvBqt8", ... }    <- same shortCode, no new row created
+```
+
+**6b. Same Idempotency-Key, different body — 409**
+
+```
+curl -i -X POST http://localhost:8080/api/urls -H "Content-Type: application/json" \
+  -H "Idempotency-Key: test-key-1" -d '{"originalUrl": "https://example.com/DIFFERENT-BODY"}'
+```
+```
+HTTP/1.1 409
+{"timestamp":"2026-08-09T18:45:04.429754400Z","status":409,"error":"Conflict","message":"Idempotency-Key 'test-key-1' was already used with a different request body","path":"/api/urls"}
+```
+
+**7. Update**
+
+```
+curl -i -X PUT http://localhost:8080/api/urls/RMfk48e -H "Content-Type: application/json" \
+  -d '{"originalUrl": "https://example.com/updated-destination"}'
+```
+```
+HTTP/1.1 200
+{"shortCode":"RMfk48e", "originalUrl":"https://example.com/updated-destination", "updatedAt":"2026-08-09T18:45:14.991423100Z", ... }
+```
+
+**8. Delete, then confirm it's gone**
+
+```
+curl -i -X DELETE http://localhost:8080/api/urls/RMfk48e
+```
+```
+HTTP/1.1 204
+```
+```
+curl -i http://localhost:8080/RMfk48e
+```
+```
+HTTP/1.1 404
+{"timestamp":"2026-08-09T18:45:15.143545500Z","status":404,"error":"Not Found","message":"No URL found for short code 'RMfk48e'","path":"/RMfk48e"}
+```
+
+**9. Unknown code**
 
 ```
 curl -i http://localhost:8080/doesnotexist
 ```
-
 ```
 HTTP/1.1 404
-Content-Type: application/json
-
-{"timestamp":"2026-08-09T18:38:43.461214200Z","status":404,"error":"Not Found","message":"No URL found for short code 'doesnotexist'","path":"/doesnotexist"}
+{"timestamp":"2026-08-09T18:45:15.205361Z","status":404,"error":"Not Found","message":"No URL found for short code 'doesnotexist'","path":"/doesnotexist"}
 ```
 
-Disallowed scheme (400) — scheme validation rejects it before a row is ever created:
+**10. Disallowed scheme** — rejected before a row is ever created
 
 ```
-curl -i -X POST http://localhost:8080/api/urls \
-  -H "Content-Type: application/json" -d '{"originalUrl": "javascript:alert(1)"}'
+curl -i -X POST http://localhost:8080/api/urls -H "Content-Type: application/json" \
+  -d '{"originalUrl": "javascript:alert(1)"}'
 ```
-
 ```
 HTTP/1.1 400
-Content-Type: application/json
+{"timestamp":"2026-08-09T18:45:15.266678700Z","status":400,"error":"Bad Request","message":"originalUrl must use http or https scheme","path":"/api/urls"}
+```
 
-{"timestamp":"2026-08-09T18:38:43.536893300Z","status":400,"error":"Bad Request","message":"originalUrl must use http or https scheme","path":"/api/urls"}
+**11. Expired link**
+
+```
+curl -i -X POST http://localhost:8080/api/urls -H "Content-Type: application/json" \
+  -d '{"originalUrl": "https://example.com/already-expired", "expiresAt": "2020-01-01T00:00:00Z"}'
+```
+```
+HTTP/1.1 201
+{"shortCode":"eKg2CH7", "expiresAt":"2020-01-01T00:00:00Z", ... }
+```
+```
+curl -i http://localhost:8080/eKg2CH7
+```
+```
+HTTP/1.1 410
+{"timestamp":"2026-08-09T18:45:28.021697600Z","status":410,"error":"Gone","message":"Short code 'eKg2CH7' has expired","path":"/eKg2CH7"}
+```
+
+**12. Rate limiting** — the per-IP token bucket (default capacity 20, refill 5/s) only trips
+under a genuine burst; 30 requests spread out sequentially over ~12s all succeeded (refill
+kept up), but firing 40 requests **concurrently** reliably exceeds it:
+
+```
+for i in $(seq 1 40); do
+  curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8080/api/urls \
+    -H "Content-Type: application/json" -d "{\"originalUrl\": \"https://example.com/burst-$i\"}" &
+done; wait
+```
+```
+201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201
+429 429 429 429 429 429 429 429 201 429 429 429 429 429 429 429 429 201
+```
+One of the 429 responses in full:
+```
+HTTP/1.1 429
+{"timestamp":"2026-08-09T18:46:04.848510500Z","status":429,"error":"Too Many Requests","message":"Rate limit exceeded for client 0:0:0:0:0:0:0:1","path":"/api/urls"}
+```
+
+**13. Health check**
+
+```
+curl http://localhost:8080/actuator/health
+```
+```json
+{"status":"UP"}
 ```
 
 ## Repository layout
