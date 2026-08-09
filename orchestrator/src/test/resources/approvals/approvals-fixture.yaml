@@ -1,0 +1,9 @@
+- decisionId: design-review
+  approved: true
+  approver: alice
+  comment: "Looks good, JdbcTemplate choice is sound."
+
+- decisionId: release-approval
+  approved: false
+  approver: bob
+  comment: "Not ready, hold the release."
