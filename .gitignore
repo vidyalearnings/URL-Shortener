@@ -1,0 +1,13 @@
+target/
+*.class
+dependency-reduced-pom.xml
+*.log
+.idea/
+*.iml
+.vscode/
+data/
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+HELP.md
