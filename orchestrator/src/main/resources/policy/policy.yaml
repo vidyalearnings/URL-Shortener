@@ -1,0 +1,18 @@
+# Policy guardrails: exactly three concrete rules (no generic rule engine/DSL).
+rules:
+  - id: require-testing-succeeded
+    type: RequireStageSucceededRule
+    appliesTo: [release-readiness]
+    params:
+      requiredStage: testing
+
+  - id: require-human-approval-for-release
+    type: RequireHumanApprovalRule
+    appliesTo: [release-readiness]
+    params:
+      decisionId: release-approval
+
+  - id: no-secrets-in-changed-files
+    type: NoSecretsInChangedFilesRule
+    appliesTo: [implement-api, implement-analytics, implement-reliability]
+    params: {}
