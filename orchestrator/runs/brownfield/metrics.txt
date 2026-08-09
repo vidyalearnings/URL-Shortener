@@ -1,0 +1,15 @@
+﻿Total nodes:                 4
+Succeeded nodes:             4
+Success rate:                100.00%
+Retry events:                0
+Retry frequency (per node):  0.00
+Rollback events:             0
+Rollback frequency (per node): 0.00
+MTTR:                        0 ms
+End-to-end latency:          13207 ms
+Per-stage duration (ms):
+  implement-reliability:     2396 ms
+  documentation:             9 ms
+  testing:                   10807 ms
+  release-readiness:         3 ms
+
